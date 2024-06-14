@@ -16,6 +16,6 @@ if gst_check_dep.found()
   subdir('interactive')
   subdir('validate')
 endif
-if not get_option('examples').disabled()
-  subdir('examples')
-endif
+#if not get_option('examples').disabled()
+subdir('examples')
+#endif

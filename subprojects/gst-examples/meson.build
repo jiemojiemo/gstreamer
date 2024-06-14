@@ -42,3 +42,4 @@ endif
 subdir('playback')
 subdir('network')
 subdir('webrtc')
+subdir('my_examples')

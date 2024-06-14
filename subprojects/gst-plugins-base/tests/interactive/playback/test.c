@@ -21,6 +21,7 @@
 #include "config.h"
 #endif
 #include <gst/gst.h>
+#include <gst/gstregistry.h>
 
 #include <stdlib.h>
 
@@ -153,6 +154,22 @@ main (gint argc, gchar * argv[])
   GstBus *bus;
 
   gst_init (&argc, &argv);
+
+  GList *plugins, *orig_plugins;
+  orig_plugins = plugins = gst_registry_get_plugin_list (gst_registry_get ());
+
+  while (plugins) {
+    GstPlugin *plugin = (GstPlugin *) (plugins->data);
+    plugins = g_list_next (plugins);
+
+    g_print ("Plugin name: %s\n", gst_plugin_get_name (plugin));
+    g_print ("Plugin version: %s\n", gst_plugin_get_version (plugin));
+    g_print ("Plugin description: %s\n", gst_plugin_get_description (plugin));
+  }
+
+  /* 释放插件列表 */
+  gst_plugin_list_free (orig_plugins);
+
 
   pipeline = gst_pipeline_new ("pipeline");
 
