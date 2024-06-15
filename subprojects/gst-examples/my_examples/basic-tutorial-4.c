@@ -44,7 +44,7 @@ int tutorial_main(int argc, char *argv[]) {
   // set uri to play
   g_object_set(
       data.playbin, "uri",
-      "https://gstreamer.freedesktop.org/data/media/sintel_trailer-480p.webm",
+      "file:///Users/user/Documents/work/测试视频/video_1280x720_30fps_60sec.mp4",
       NULL);
 
   // start playing
