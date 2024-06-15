@@ -9,3 +9,7 @@ executable('basic-tutorial-2',
 executable('basic-tutorial-3',
            ['basic-tutorial-3.c'],
            dependencies : [gst_dep, m_dep])
+
+executable('basic-tutorial-4',
+           ['basic-tutorial-4.c'],
+           dependencies : [gst_dep, m_dep])
