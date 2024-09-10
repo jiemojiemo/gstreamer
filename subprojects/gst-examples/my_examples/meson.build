@@ -25,3 +25,7 @@ executable('basic-tutorial-4',
 executable('basic-tutorial-6',
            ['basic-tutorial-6.c'],
            dependencies : [gst_dep, m_dep])
+
+executable('basic-tutorial-7',
+           ['basic-tutorial-7.c'],
+           dependencies : [gst_dep, m_dep])
