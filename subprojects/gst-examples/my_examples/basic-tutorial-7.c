@@ -30,7 +30,7 @@ int tutorial_main(int argc, char *argv[]) {
   video_sink = gst_element_factory_make("autovideosink", "video_sink");
 
   queue2 = gst_element_factory_make("queue", "queue2");
-  visual2 = gst_element_factory_make("wavescope", "visual2");
+  visual2 = gst_element_factory_make("spectrascope", "visual2");
   video_convert2 = gst_element_factory_make("videoconvert", "video_convert2");
   video_sink2 = gst_element_factory_make("autovideosink", "video_sink2");
 
@@ -45,9 +45,9 @@ int tutorial_main(int argc, char *argv[]) {
   }
 
   // configure elements
-  g_object_set(audio_source, "freq", 215.0f, NULL);
+  g_object_set(audio_source, "freq", 215.0f, "wave", 2, NULL);
   g_object_set(visual, "shader", 0, "style", 1, NULL);
-  g_object_set(visual2, "shader", 0, "style", 3, NULL);
+//  g_object_set(visual2, "shader", 0, "style", 3, NULL);
 
   // link elements
   gst_bin_add_many(GST_BIN(pipeline), audio_source, tee, queue, visual,
