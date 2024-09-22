@@ -7,8 +7,8 @@ gtest_dep = gtest_proj.get_variable('gtest_dep')
 gmock_dep = gtest_proj.get_variable('gmock_dep')
 gmock_main_dep = gtest_proj.get_variable('gmock_main_dep')
 
-executable('test_a',
-           ['test_a.cpp'],
+executable('gst_gstreamer_tests',
+           ['test_gstobject.cpp'],
            dependencies : [gst_dep, m_dep, gmock_main_dep])
 #
 #executable('basic-tutorial-2',
