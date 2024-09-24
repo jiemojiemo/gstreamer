@@ -8,7 +8,8 @@ gmock_dep = gtest_proj.get_variable('gmock_dep')
 gmock_main_dep = gtest_proj.get_variable('gmock_main_dep')
 
 executable('gst_gstreamer_tests',
-           ['test_gstobject.cpp'],
+           ['test_gstbus.cpp',
+            'test_gstobject.cpp'],
            dependencies : [gst_dep, m_dep, gmock_main_dep])
 #
 #executable('basic-tutorial-2',
