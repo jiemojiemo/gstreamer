@@ -8,34 +8,8 @@ gmock_dep = gtest_proj.get_variable('gmock_dep')
 gmock_main_dep = gtest_proj.get_variable('gmock_main_dep')
 
 executable('gst_gstreamer_tests',
-           ['test_gstbus.cpp',
+           ['gst_test_main.cpp',
+            'test_gstbus.cpp',
+            'test_gstmessage.cpp',
             'test_gstobject.cpp'],
-           dependencies : [gst_dep, m_dep, gmock_main_dep])
-#
-#executable('basic-tutorial-2',
-#           ['basic-tutorial-2.c'],
-#           dependencies : [gst_dep, m_dep])
-#
-#executable('basic-tutorial-2-exercise',
-#           ['basic-tutorial-2-exercise.c'],
-#           dependencies : [gst_dep, m_dep])
-#
-#executable('basic-tutorial-3',
-#           ['basic-tutorial-3.c'],
-#           dependencies : [gst_dep, m_dep])
-#
-#executable('basic-tutorial-3-exercise',
-#           ['basic-tutorial-3-exercise.c'],
-#           dependencies : [gst_dep, m_dep])
-#
-#executable('basic-tutorial-4',
-#           ['basic-tutorial-4.c'],
-#           dependencies : [gst_dep, m_dep])
-#
-#executable('basic-tutorial-6',
-#           ['basic-tutorial-6.c'],
-#           dependencies : [gst_dep, m_dep])
-#
-#executable('basic-tutorial-7',
-#           ['basic-tutorial-7.c'],
-#           dependencies : [gst_dep, m_dep])
+           dependencies : [gst_dep, m_dep, gmock_dep])

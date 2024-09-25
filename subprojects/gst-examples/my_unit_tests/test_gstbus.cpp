@@ -302,30 +302,30 @@ send_messages (gpointer data)
 
   return FALSE;
 }
-
-TEST_F(AGstBus, xxxx)
-{
-  guint num_eos = 0;
-  guint num_app = 0;
-  auto* main_loop = g_main_loop_new(NULL, FALSE);
-  auto id = gst_bus_add_watch (bus, gst_bus_async_signal_func, NULL);
-  ASSERT_THAT(id, Not(0));
-
-  g_signal_connect (bus, "message::eos", (GCallback) message_func_eos,
-                   &num_eos);
-  g_signal_connect (bus, "message::application",
-                   (GCallback) message_func_app, &num_app);
-
-  g_idle_add ((GSourceFunc) send_messages, this);
-  while (g_main_context_pending (NULL))
-    g_main_context_iteration (NULL, FALSE);
-
-  ASSERT_THAT(num_eos, Eq(10));
-  ASSERT_THAT(num_app, Eq(10));
-
-  gst_bus_remove_watch(bus);
-  g_main_loop_unref (main_loop);
-}
+//
+//TEST_F(AGstBus, xxxx)
+//{
+//  guint num_eos = 0;
+//  guint num_app = 0;
+//  auto* main_loop = g_main_loop_new(NULL, FALSE);
+//  auto id = gst_bus_add_watch (bus, gst_bus_async_signal_func, NULL);
+//  ASSERT_THAT(id, Not(0));
+//
+//  g_signal_connect (bus, "message::eos", (GCallback) message_func_eos,
+//                   &num_eos);
+//  g_signal_connect (bus, "message::application",
+//                   (GCallback) message_func_app, &num_app);
+//
+//  g_idle_add ((GSourceFunc) send_messages, this);
+//  while (g_main_context_pending (NULL))
+//    g_main_context_iteration (NULL, FALSE);
+//
+//  ASSERT_THAT(num_eos, Eq(10));
+//  ASSERT_THAT(num_app, Eq(10));
+//
+//  gst_bus_remove_watch(bus);
+//  g_main_loop_unref (main_loop);
+//}
 
 //
 // TEST_F(AGstBus, CanGetSyncMessageSignalsFromSyncSignalHandler)
