@@ -10,7 +10,9 @@ gmock_main_dep = gtest_proj.get_variable('gmock_main_dep')
 executable('gst_gstreamer_tests',
            ['gst_test_main.cpp',
             'test_gstbus.cpp',
+            'test_gstcaps.cpp',
             'test_gstevent.cpp',
             'test_gstmessage.cpp',
-            'test_gstobject.cpp'],
+            'test_gstobject.cpp',
+            'test_gststructure.cpp'],
            dependencies : [gst_dep, m_dep, gmock_dep])
