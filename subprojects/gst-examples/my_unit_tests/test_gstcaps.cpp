@@ -104,3 +104,83 @@ TEST_F(AGstCaps, CanCreateEmptyWithMediaTypeAndFieldName) {
   auto *format = gst_structure_get_string(s, "format");
   ASSERT_THAT(format, StrEq("RGB"));
 }
+
+TEST_F(AGstCaps, AppendStructureIncreaseSize) {
+  auto *e = gst_caps_new_empty();
+  ON_SCOPE_EXIT([e] { gst_caps_unref(e); });
+
+  auto *s =
+      gst_structure_new("video/x-raw", "format", G_TYPE_STRING, "RGB", NULL);
+  gst_caps_append_structure(e, s);
+
+  ASSERT_THAT(gst_caps_get_size(e), Eq(1));
+}
+
+TEST_F(AGstCaps, AppendFailedIfStructureExist) {
+  auto *e = gst_caps_new_empty();
+  ON_SCOPE_EXIT([e] { gst_caps_unref(e); });
+
+  auto *s =
+      gst_structure_new("video/x-raw", "format", G_TYPE_STRING, "RGB", NULL);
+  gst_caps_append_structure(e, s);
+  gst_caps_append_structure(e, s);
+
+  ASSERT_THAT(gst_caps_get_size(e), Eq(1));
+}
+
+TEST_F(AGstCaps, RemoveStructureDecreaseSize) {
+  auto *e = gst_caps_new_empty();
+  ON_SCOPE_EXIT([e] { gst_caps_unref(e); });
+
+  auto *s =
+      gst_structure_new("video/x-raw", "format", G_TYPE_STRING, "RGB", NULL);
+  gst_caps_append_structure(e, s);
+  ASSERT_THAT(gst_caps_get_size(e), Eq(1));
+
+  gst_caps_remove_structure(e, 0);
+  ASSERT_THAT(gst_caps_get_size(e), Eq(0));
+}
+
+TEST_F(AGstCaps, RemoveStructureHappendNothingIfIndexNotValid) {
+  auto *e = gst_caps_new_empty();
+  ON_SCOPE_EXIT([e] { gst_caps_unref(e); });
+
+  auto *s =
+      gst_structure_new("video/x-raw", "format", G_TYPE_STRING, "RGB", NULL);
+  gst_caps_append_structure(e, s);
+  ASSERT_THAT(gst_caps_get_size(e), Eq(1));
+
+  gst_caps_remove_structure(e, 1);
+  ASSERT_THAT(gst_caps_get_size(e), Eq(1));
+}
+
+TEST_F(AGstCaps, MergeStructureIncreaseCountIfThisStructureNoExpressed) {
+  auto *e = gst_caps_new_empty();
+  ON_SCOPE_EXIT([e] { gst_caps_unref(e); });
+
+  auto *s =
+      gst_structure_new("video/x-raw", "format", G_TYPE_STRING, "RGB", NULL);
+  auto *merged = gst_caps_merge_structure(e, s);
+  ASSERT_THAT(gst_caps_get_size(merged), Eq(1));
+
+  auto *s1 =
+      gst_structure_new("video/x-raw", "format", G_TYPE_STRING, "RGB", NULL);
+  auto *merged2 = gst_caps_merge_structure(merged, s1);
+  ASSERT_THAT(gst_caps_get_size(merged2), Eq(1));
+}
+
+TEST_F(AGstCaps, CanAppendStructureAndFeature) {
+  auto *e = gst_caps_new_empty();
+  ON_SCOPE_EXIT([e] { gst_caps_unref(e); });
+
+  auto *s =
+      gst_structure_new("video/x-raw", "format", G_TYPE_STRING, "RGB", NULL);
+  gst_caps_append_structure_full(
+      e, s, gst_caps_features_new("m:abc", "m:def", "m:ghi", NULL));
+
+  ASSERT_THAT(gst_caps_get_size(e), Eq(1));
+  auto *s1 = gst_caps_get_structure(e, 0);
+  ASSERT_THAT(s1, NotNull());
+  auto *f = gst_caps_get_features(e, 0);
+  ASSERT_THAT(f, NotNull());
+}
