@@ -14,5 +14,6 @@ executable('gst_gstreamer_tests',
             'test_gstevent.cpp',
             'test_gstmessage.cpp',
             'test_gstobject.cpp',
+            'test_gstpad.cpp',
             'test_gststructure.cpp'],
            dependencies : [gst_dep, m_dep, gmock_dep])
