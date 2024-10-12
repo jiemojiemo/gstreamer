@@ -29,3 +29,7 @@ executable('basic-tutorial-6',
 executable('basic-tutorial-7',
            ['basic-tutorial-7.c'],
            dependencies : [gst_dep, m_dep])
+
+executable('basic-tutorial-8',
+           ['basic-tutorial-8.c'],
+           dependencies : [gst_dep, m_dep, gstaudio_dep])
