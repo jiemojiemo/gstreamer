@@ -33,3 +33,7 @@ executable('basic-tutorial-7',
 executable('basic-tutorial-8',
            ['basic-tutorial-8.c'],
            dependencies : [gst_dep, m_dep, gstaudio_dep])
+
+executable('basic-tutorial-13',
+           ['basic-tutorial-13.c'],
+           dependencies : [gst_dep, m_dep])
