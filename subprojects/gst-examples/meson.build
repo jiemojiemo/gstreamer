@@ -1,4 +1,8 @@
-project('gst-examples', 'c', version : '1.25.0.1', license : 'LGPL')
+project('gst-examples', ['c', 'cpp'], version : '1.25.0.1', license : 'LGPL', default_options : ['buildtype=debug',
+                                                                                                 # Needed due to https://github.com/mesonbuild/meson/issues/1889,
+                                                                                                 # but this can cause problems in the future. Remove it
+                                                                                                 # when it's no longer necessary.
+                                                                                                 'cpp_std=c++14'])
 
 static_build = get_option('default_library') == 'static'
 cc = meson.get_compiler('c')
@@ -45,3 +49,4 @@ subdir('playback')
 subdir('network')
 subdir('webrtc')
 subdir('my_examples')
+subdir('my_unit_tests')

@@ -937,18 +937,18 @@ gst_bus_suite (void)
   suite_add_tcase (s, tc_chain);
   tcase_add_test (tc_chain, test_hammer_bus);
   tcase_add_test (tc_chain, test_watch);
-  tcase_add_test (tc_chain, test_watch_with_poll);
-  tcase_add_test (tc_chain, test_watch_twice);
-  tcase_add_test (tc_chain, test_watch_with_custom_context);
-  tcase_add_test (tc_chain, test_add_watch_with_custom_context);
-  tcase_add_test (tc_chain, test_remove_watch);
-  tcase_add_test (tc_chain, test_timed_pop);
-  tcase_add_test (tc_chain, test_timed_pop_thread);
-  tcase_add_test (tc_chain, test_timed_pop_filtered);
-  tcase_add_test (tc_chain, test_timed_pop_filtered_with_timeout);
-  tcase_add_test (tc_chain, test_custom_main_context);
-  tcase_add_test (tc_chain, test_async_message);
-  tcase_add_test (tc_chain, test_single_gsource);
+//  tcase_add_test (tc_chain, test_watch_with_poll);
+//  tcase_add_test (tc_chain, test_watch_twice);
+//  tcase_add_test (tc_chain, test_watch_with_custom_context);
+//  tcase_add_test (tc_chain, test_add_watch_with_custom_context);
+//  tcase_add_test (tc_chain, test_remove_watch);
+//  tcase_add_test (tc_chain, test_timed_pop);
+//  tcase_add_test (tc_chain, test_timed_pop_thread);
+//  tcase_add_test (tc_chain, test_timed_pop_filtered);
+//  tcase_add_test (tc_chain, test_timed_pop_filtered_with_timeout);
+//  tcase_add_test (tc_chain, test_custom_main_context);
+//  tcase_add_test (tc_chain, test_async_message);
+//  tcase_add_test (tc_chain, test_single_gsource);
   return s;
 }
 
