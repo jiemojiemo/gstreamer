@@ -10,11 +10,28 @@ typedef struct _CustomData
 {
   GstElement *pipeline;
   GstElement *video_sink;
+  GstElement *audio_sink;
   GMainLoop *loop;
 
   gboolean playing;             /* Playing or Paused */
   gdouble rate;                 /* Current playback rate (can be negative) */
+  int segment_loop_count;
 } CustomData;
+
+static void send_segment_seek_event(CustomData * data)
+{
+  GstEvent* seek_event = seek_event =
+        gst_event_new_seek (data->rate, GST_FORMAT_TIME,
+        GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE | GST_SEEK_FLAG_SEGMENT, GST_SEEK_TYPE_SET,
+        0 * GST_SECOND, GST_SEEK_TYPE_SET, 5 * GST_SECOND);
+
+  if (data->video_sink == NULL) {
+    /* If we have not done so, obtain the sink through which we will send the seek events */
+    g_object_get (data->pipeline, "video-sink", &data->video_sink, NULL);
+  }
+
+  gst_element_send_event (data->video_sink, seek_event);
+}
 
 /* Send seek event to change rate */
 static void
@@ -33,7 +50,7 @@ send_seek_event (CustomData * data)
   if (data->rate > 0) {
     seek_event =
         gst_event_new_seek (data->rate, GST_FORMAT_TIME,
-        GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE | GST_SEEK_FLAG_SEGMENT, GST_SEEK_TYPE_SET,
+        GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE, GST_SEEK_TYPE_SET,
         position, GST_SEEK_TYPE_END, 0);
   } else {
     seek_event =
@@ -79,6 +96,9 @@ handle_keyboard (GIOChannel * source, GIOCondition cond, CustomData * data)
       }
       send_seek_event (data);
       break;
+  case 'k':
+    send_segment_seek_event(data);
+    break;
     case 'd':
       data->rate *= -1.0;
       send_seek_event (data);
@@ -89,10 +109,25 @@ handle_keyboard (GIOChannel * source, GIOCondition cond, CustomData * data)
         g_object_get (data->pipeline, "video-sink", &data->video_sink, NULL);
       }
 
+      if(data->audio_sink == NULL) {
+        g_object_get (data->pipeline, "audio-sink", &data->audio_sink, NULL);
+      }
+
+    if (g_ascii_isupper (str[0])) {
       gst_element_send_event (data->video_sink,
-          gst_event_new_step (GST_FORMAT_BUFFERS, 1, ABS (10.0), TRUE,
+          gst_event_new_step (GST_FORMAT_BUFFERS, 1, ABS (data->rate), TRUE,
               FALSE));
       g_print ("Stepping one frame\n");
+    }else {
+      gst_element_send_event (data->video_sink,
+          gst_event_new_step (GST_FORMAT_TIME, 5 * GST_SECOND, ABS (data->rate), TRUE,
+              FALSE));
+      gst_element_send_event (data->audio_sink,
+          gst_event_new_step (GST_FORMAT_TIME, 5 * GST_SECOND, ABS (data->rate), TRUE,
+              FALSE));
+      g_print ("Stepping 5s\n");
+    }
+
       break;
     case 'q':
       g_main_loop_quit (data->loop);
@@ -105,6 +140,22 @@ handle_keyboard (GIOChannel * source, GIOCondition cond, CustomData * data)
 
   return TRUE;
 }
+
+static void segment_done_callback(GstBus *bus, GstMessage *msg, CustomData *data) {
+  g_print("Segment done, seeking again\n");
+  // 重新执行 seek
+  gst_element_seek(data->pipeline,
+      1.0,
+      GST_FORMAT_TIME,
+      GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_SEGMENT,
+      GST_SEEK_TYPE_SET,
+      0 * GST_SECOND,
+      GST_SEEK_TYPE_SET,
+      5 * GST_SECOND);
+  data->segment_loop_count++;
+  g_print("segment loop count:%d\n", data->segment_loop_count);
+}
+
 
 int
 tutorial_main (int argc, char *argv[])
@@ -123,14 +174,16 @@ tutorial_main (int argc, char *argv[])
   g_print ("USAGE: Choose one of the following options, then press enter:\n"
       " 'P' to toggle between PAUSE and PLAY\n"
       " 'S' to increase playback speed, 's' to decrease playback speed\n"
+      " 'k' to seek with segment [0, 10] and play looping\n"
       " 'D' to toggle playback direction\n"
       " 'N' to move to next frame (in the current direction, better in PAUSE)\n"
+      " 'n' to move to 5s \n"
       " 'Q' to quit\n");
 
   /* Build the pipeline */
   data.pipeline =
       gst_parse_launch
-      ("playbin uri=file:///Users/user/Documents/work/测试视频/perf1080P.mp4",
+      ("playbin uri=file:///Users/user/Documents/work/测试视频/video_1280x720_30fps_180sec.mp4",
       NULL);
 
   /* Add a keyboard watch so we get notified of keystrokes */
@@ -150,6 +203,11 @@ tutorial_main (int argc, char *argv[])
   }
   data.playing = TRUE;
   data.rate = 1.0;
+
+  // add bus watch
+  GstBus *bus = gst_element_get_bus (data.pipeline);
+  gst_bus_add_signal_watch(bus);
+  g_signal_connect(G_OBJECT(bus), "message::segment-done", (GCallback)segment_done_callback, &data);
 
   /* Create a GLib Main Loop and set it to run */
   data.loop = g_main_loop_new (NULL, FALSE);
