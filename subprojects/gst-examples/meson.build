@@ -40,6 +40,8 @@ gstrtp_dep = dependency('gstreamer-rtp-1.0', version : gst_req,
     fallback : ['gst-plugins-base', 'rtp_dep'])
 gstaudio_dep = dependency('gstreamer-audio-1.0', version : gst_req,
     fallback : ['gst-plugins-base', 'audio_dep'])
+gstvideo_dep = dependency('gstreamer-video-1.0', version : gst_req,
+                          fallback : ['gst-plugins-base', 'audio_dep'])
 
 if static_build
   subdir_done()

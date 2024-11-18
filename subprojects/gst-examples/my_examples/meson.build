@@ -37,3 +37,19 @@ executable('basic-tutorial-8',
 executable('basic-tutorial-13',
            ['basic-tutorial-13.c'],
            dependencies : [gst_dep, m_dep])
+
+executable('playback-tutorial-1',
+           ['playback-tutorial-1.c'],
+           dependencies : [gst_dep, m_dep])
+
+executable('playback-tutorial-5',
+           ['playback-tutorial-5.c'],
+           dependencies : [gst_dep, m_dep, gstvideo_dep])
+
+executable('playback-tutorial-6',
+           ['playback-tutorial-6.c'],
+           dependencies : [gst_dep, m_dep, gstvideo_dep])
+
+executable('playback-tutorial-7',
+           ['playback-tutorial-7.c'],
+           dependencies : [gst_dep, m_dep, gstvideo_dep])
