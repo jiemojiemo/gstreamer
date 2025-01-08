@@ -42,6 +42,8 @@ gstaudio_dep = dependency('gstreamer-audio-1.0', version : gst_req,
     fallback : ['gst-plugins-base', 'audio_dep'])
 gstvideo_dep = dependency('gstreamer-video-1.0', version : gst_req,
                           fallback : ['gst-plugins-base', 'audio_dep'])
+gstbase_dep = dependency('gstreamer-base-1.0', version : gst_req,
+                         fallback : ['gstreamer', 'gst_base_dep'])
 
 if static_build
   subdir_done()
@@ -52,3 +54,4 @@ subdir('network')
 subdir('webrtc')
 subdir('my_examples')
 subdir('my_unit_tests')
+subdir('my_plugin')
