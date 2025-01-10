@@ -16,5 +16,13 @@ executable('gst_gstreamer_tests',
             'test_gstmessage.cpp',
             'test_gstobject.cpp',
             'test_gstpad.cpp',
-            'test_gststructure.cpp'],
+            'test_gststructure.cpp',
+            'my_plugin/test_gstmyfilter.cpp'
+           ],
+           dependencies : [gst_dep, m_dep, gmock_dep])
+
+executable('gst_my_plugin_tests',
+           ['gst_test_main.cpp',
+            'my_plugin/test_gstmyfilter.cpp'
+           ],
            dependencies : [gst_dep, m_dep, gmock_dep])

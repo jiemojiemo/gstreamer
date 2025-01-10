@@ -15,7 +15,6 @@ void init_gst_test(int argc, char **argv)
                              "List tests present in the testsuite", NULL},
                             {NULL}};
   guint i;
-  printf("yyyy");
 
   ctx = g_option_context_new("gst-check");
   g_option_context_add_main_entries(ctx, options, NULL);

@@ -3,7 +3,7 @@
  * Copyright (C) 2005 Thomas Vander Stichele <thomas@apestaart.org>
  * Copyright (C) 2005 Ronald S. Bultje <rbultje@ronald.bitfreak.net>
  * Copyright (C) 2024  <<user@hostname.org>>
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
  * to deal in the Software without restriction, including without limitation
@@ -101,6 +101,12 @@ G_DEFINE_TYPE (GstMyFilter, gst_my_filter, GST_TYPE_ELEMENT);
 
 GST_ELEMENT_REGISTER_DEFINE (my_filter, "my_filter", GST_RANK_NONE,
     GST_TYPE_MYFILTER);
+
+// gboolean gst_element_register_my_filter(GstPlugin *plugin) {
+//   {}
+//   return gst_element_register(plugin, "my_filter", GST_RANK_NONE,
+//                               (gst_my_filter_get_type()));
+// };
 
 static void gst_my_filter_set_property (GObject * object,
     guint prop_id, const GValue * value, GParamSpec * pspec);
