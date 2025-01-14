@@ -139,8 +139,8 @@ gst_my_filter_class_init (GstMyFilterClass * klass)
 
   gst_element_class_set_details_simple (gstelement_class,
       "MyFilter",
-      "FIXME:Generic",
-      "FIXME:Generic Template Element", " <<user@hostname.org>>");
+      "Generic",
+      "Generic Template Element", " <<user@hostname.org>>");
 
   gst_element_class_add_pad_template (gstelement_class,
       gst_static_pad_template_get (&src_factory));
