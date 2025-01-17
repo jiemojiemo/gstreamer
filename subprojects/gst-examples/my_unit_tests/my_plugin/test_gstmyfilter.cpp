@@ -74,17 +74,102 @@ TEST_F(AGstMyFilter, hasStaicSourcePad) {
 TEST_F(AGstMyFilter, SilentPropertyAsExpected) {
   auto *object_class = G_OBJECT_GET_CLASS(myfilter);
 
-  auto *silent_property = g_object_class_find_property(object_class, "silent");
-  ASSERT_THAT(silent_property, NotNull());
+  auto *property = g_object_class_find_property(object_class, "silent");
+  ASSERT_THAT(property, NotNull());
 
-  ASSERT_THAT(g_param_spec_get_name(silent_property), StrEq("silent"));
-  ASSERT_THAT(g_param_spec_get_nick(silent_property), StrEq("Silent"));
-  ASSERT_THAT(g_param_spec_get_blurb(silent_property),
+  ASSERT_THAT(g_param_spec_get_name(property), StrEq("silent"));
+  ASSERT_THAT(g_param_spec_get_nick(property), StrEq("Silent"));
+  ASSERT_THAT(g_param_spec_get_blurb(property),
               StrEq("Produce verbose output ?"));
-  ASSERT_TRUE(silent_property->flags & G_PARAM_READWRITE);
+  ASSERT_TRUE(property->flags & G_PARAM_READWRITE);
   gboolean default_value =
-      g_value_get_boolean(g_param_spec_get_default_value(silent_property));
+      g_value_get_boolean(g_param_spec_get_default_value(property));
   ASSERT_FALSE(default_value);
+}
+
+TEST_F(AGstMyFilter, DelayPropertyAsExpected) {
+  auto *object_class = G_OBJECT_GET_CLASS(myfilter);
+
+  auto *property =
+      g_object_class_find_property(object_class, "delay");
+  ASSERT_THAT(property, NotNull());
+
+  ASSERT_THAT(g_param_spec_get_name(property), StrEq("delay"));
+  ASSERT_THAT(g_param_spec_get_nick(property), StrEq("Delay"));
+  ASSERT_THAT(g_param_spec_get_blurb(property),
+              StrEq("Delay time in milliseconds"));
+  auto expected_flag = G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_CONTROLLABLE;
+  ASSERT_THAT(property->flags, Eq(expected_flag));
+
+  ASSERT_TRUE(G_IS_PARAM_SPEC_FLOAT(property));
+  auto *float_property = G_PARAM_SPEC_FLOAT(property);
+  ASSERT_THAT(float_property->minimum, Eq(0.0f));
+  ASSERT_THAT(float_property->maximum, Eq(2000.0f));
+  ASSERT_THAT(float_property->default_value, Eq(0.0f));
+}
+
+TEST_F(AGstMyFilter, FeedbackPropertyAsExpected) {
+  auto *object_class = G_OBJECT_GET_CLASS(myfilter);
+
+  auto *property =
+      g_object_class_find_property(object_class, "feedback");
+  ASSERT_THAT(property, NotNull());
+
+  ASSERT_THAT(g_param_spec_get_name(property), StrEq("feedback"));
+  ASSERT_THAT(g_param_spec_get_nick(property), StrEq("Feedback"));
+  ASSERT_THAT(g_param_spec_get_blurb(property),
+              StrEq("Feedback factor"));
+  auto expected_flag = G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_CONTROLLABLE;
+  ASSERT_THAT(property->flags, Eq(expected_flag));
+
+  ASSERT_TRUE(G_IS_PARAM_SPEC_FLOAT(property));
+  auto *float_property = G_PARAM_SPEC_FLOAT(property);
+  ASSERT_THAT(float_property->minimum, Eq(0.0f));
+  ASSERT_THAT(float_property->maximum, Eq(1.0f));
+  ASSERT_THAT(float_property->default_value, Eq(0.0f));
+}
+
+
+TEST_F(AGstMyFilter, DryPropertyAsExpected) {
+  auto *object_class = G_OBJECT_GET_CLASS(myfilter);
+
+  auto *property =
+      g_object_class_find_property(object_class, "dry");
+  ASSERT_THAT(property, NotNull());
+
+  ASSERT_THAT(g_param_spec_get_name(property), StrEq("dry"));
+  ASSERT_THAT(g_param_spec_get_nick(property), StrEq("Dry"));
+  ASSERT_THAT(g_param_spec_get_blurb(property),
+              StrEq("Dry factor"));
+  auto expected_flag = G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_CONTROLLABLE;
+  ASSERT_THAT(property->flags, Eq(expected_flag));
+
+  ASSERT_TRUE(G_IS_PARAM_SPEC_FLOAT(property));
+  auto *float_property = G_PARAM_SPEC_FLOAT(property);
+  ASSERT_THAT(float_property->minimum, Eq(0.0f));
+  ASSERT_THAT(float_property->maximum, Eq(1.0f));
+  ASSERT_THAT(float_property->default_value, Eq(0.5f));
+}
+
+TEST_F(AGstMyFilter, WetPropertyAsExpected) {
+  auto *object_class = G_OBJECT_GET_CLASS(myfilter);
+
+  auto *property =
+      g_object_class_find_property(object_class, "wet");
+  ASSERT_THAT(property, NotNull());
+
+  ASSERT_THAT(g_param_spec_get_name(property), StrEq("wet"));
+  ASSERT_THAT(g_param_spec_get_nick(property), StrEq("Wet"));
+  ASSERT_THAT(g_param_spec_get_blurb(property),
+              StrEq("Wet factor"));
+  auto expected_flag = G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_CONTROLLABLE;
+  ASSERT_THAT(property->flags, Eq(expected_flag));
+
+  ASSERT_TRUE(G_IS_PARAM_SPEC_FLOAT(property));
+  auto *float_property = G_PARAM_SPEC_FLOAT(property);
+  ASSERT_THAT(float_property->minimum, Eq(0.0f));
+  ASSERT_THAT(float_property->maximum, Eq(1.0f));
+  ASSERT_THAT(float_property->default_value, Eq(0.5f));
 }
 
 TEST_F(AGstMyFilter, CanSetSilentProperty) {
@@ -94,6 +179,42 @@ TEST_F(AGstMyFilter, CanSetSilentProperty) {
   g_object_get(myfilter, "silent", &silent, nullptr);
 
   ASSERT_TRUE(silent);
+}
+
+TEST_F(AGstMyFilter, CanGetAndSetDelay) {
+  gfloat value{1000.f};
+  g_object_set(myfilter, "delay", value, nullptr);
+
+  gfloat got{0.0f};
+  g_object_get(myfilter, "delay", &got, nullptr);
+  ASSERT_THAT(got, FloatEq(value));
+}
+
+TEST_F(AGstMyFilter, CanGetAndSetFeedback) {
+  gfloat value{0.8f};
+  g_object_set(myfilter, "feedback", value, nullptr);
+
+  gfloat got{0.0f};
+  g_object_get(myfilter, "feedback", &got, nullptr);
+  ASSERT_THAT(got, FloatEq(value));
+}
+
+TEST_F(AGstMyFilter, CanGetAndSetDry) {
+  gfloat value{0.8f};
+  g_object_set(myfilter, "dry", value, nullptr);
+
+  gfloat got{0.0f};
+  g_object_get(myfilter, "dry", &got, nullptr);
+  ASSERT_THAT(got, FloatEq(value));
+}
+
+TEST_F(AGstMyFilter, CanGetAndSetWet) {
+  gfloat value{0.8f};
+  g_object_set(myfilter, "wet", value, nullptr);
+
+  gfloat got{0.0f};
+  g_object_get(myfilter, "wet", &got, nullptr);
+  ASSERT_THAT(got, FloatEq(value));
 }
 
 TEST_F(AGstMyFilter, MetadataIsAsExpected) {

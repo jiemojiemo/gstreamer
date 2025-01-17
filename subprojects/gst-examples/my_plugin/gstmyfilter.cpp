@@ -57,95 +57,119 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#  include <config.h>
+#include <config.h>
 #endif
 
 #include <gst/gst.h>
-
+#include <atomic>
 #include "gstmyfilter.h"
+#include "aa_delay_line.h"
 
-GST_DEBUG_CATEGORY_STATIC (gst_my_filter_debug);
+GST_DEBUG_CATEGORY_STATIC(gst_my_filter_debug);
 #define GST_CAT_DEFAULT gst_my_filter_debug
 
 /* Filter signals and args */
-enum
-{
+enum {
   /* FILL ME */
   LAST_SIGNAL
 };
 
-enum
-{
-  PROP_0,
-  PROP_SILENT
-};
+enum { PROP_0, PROP_SILENT, PROP_DELAY, PROP_FEEDBACK, PROP_DRY, PROP_WET };
 
 /* the capabilities of the inputs and outputs.
  *
  * describe the real formats here.
  */
-static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE ("sink",
-    GST_PAD_SINK,
-    GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("ANY")
-    );
+static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
+    "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("ANY"));
 
-static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE ("src",
-    GST_PAD_SRC,
-    GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("ANY")
-    );
+static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
+    "src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS("ANY"));
+
+typedef struct {
+  std::atomic<float> delay;
+  std::atomic<float> feedback;
+  std::atomic<float> dry;
+  std::atomic<float> wet;
+  std::unique_ptr<libaa::DelayLine<float>> delay_line;
+}GstMyFilterPrivate;
 
 #define gst_my_filter_parent_class parent_class
-G_DEFINE_TYPE (GstMyFilter, gst_my_filter, GST_TYPE_ELEMENT);
+G_DEFINE_TYPE_WITH_PRIVATE(GstMyFilter, gst_my_filter, GST_TYPE_ELEMENT);
 
-GST_ELEMENT_REGISTER_DEFINE (my_filter, "my_filter", GST_RANK_NONE,
-    GST_TYPE_MYFILTER);
+GST_ELEMENT_REGISTER_DEFINE(my_filter, "my_filter", GST_RANK_NONE,
+                            GST_TYPE_MYFILTER);
 
-// gboolean gst_element_register_my_filter(GstPlugin *plugin) {
-//   {}
-//   return gst_element_register(plugin, "my_filter", GST_RANK_NONE,
-//                               (gst_my_filter_get_type()));
-// };
+static void gst_my_filter_set_property(GObject *object, guint prop_id,
+                                       const GValue *value, GParamSpec *pspec);
+static void gst_my_filter_get_property(GObject *object, guint prop_id,
+                                       GValue *value, GParamSpec *pspec);
 
-static void gst_my_filter_set_property (GObject * object,
-    guint prop_id, const GValue * value, GParamSpec * pspec);
-static void gst_my_filter_get_property (GObject * object,
-    guint prop_id, GValue * value, GParamSpec * pspec);
-
-static gboolean gst_my_filter_sink_event (GstPad * pad,
-    GstObject * parent, GstEvent * event);
-static GstFlowReturn gst_my_filter_chain (GstPad * pad,
-    GstObject * parent, GstBuffer * buf);
+static gboolean gst_my_filter_sink_event(GstPad *pad, GstObject *parent,
+                                         GstEvent *event);
+static GstFlowReturn gst_my_filter_chain(GstPad *pad, GstObject *parent,
+                                         GstBuffer *buf);
+static GstStateChangeReturn
+gst_my_filter_change_state (GstElement *element, GstStateChange transition);
 
 /* GObject vmethod implementations */
 
 /* initialize the myfilter's class */
-static void
-gst_my_filter_class_init (GstMyFilterClass * klass)
-{
+static void gst_my_filter_class_init(GstMyFilterClass *klass) {
+  static_assert(std::atomic<float>::is_always_lock_free);
+
   GObjectClass *gobject_class;
   GstElementClass *gstelement_class;
 
-  gobject_class = (GObjectClass *) klass;
-  gstelement_class = (GstElementClass *) klass;
+  gobject_class = (GObjectClass *)klass;
+  gstelement_class = (GstElementClass *)klass;
 
   gobject_class->set_property = gst_my_filter_set_property;
   gobject_class->get_property = gst_my_filter_get_property;
 
-  g_object_class_install_property (gobject_class, PROP_SILENT,
-      g_param_spec_boolean ("silent", "Silent", "Produce verbose output ?",
-          FALSE, G_PARAM_READWRITE));
+  g_object_class_install_property(
+      gobject_class, PROP_SILENT,
+      g_param_spec_boolean("silent", "Silent", "Produce verbose output ?",
+                           FALSE, G_PARAM_READWRITE));
 
-  gst_element_class_set_details_simple (gstelement_class,
-      "MyFilter",
-      "Generic",
-      "Generic Template Element", " <<user@hostname.org>>");
+  g_object_class_install_property(
+      gobject_class, PROP_DELAY,
+      g_param_spec_float(
+          "delay", "Delay", "Delay time in milliseconds", 0.0f, 2000.0f, 0.0f,
+          static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                   GST_PARAM_CONTROLLABLE)));
 
-  gst_element_class_add_pad_template (gstelement_class,
-      gst_static_pad_template_get (&src_factory));
-  gst_element_class_add_pad_template (gstelement_class,
-      gst_static_pad_template_get (&sink_factory));
+  g_object_class_install_property(
+      gobject_class, PROP_FEEDBACK,
+      g_param_spec_float(
+          "feedback", "Feedback", "Feedback factor", 0.0f, 1.0f, 0.0f,
+          static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                   GST_PARAM_CONTROLLABLE)));
+
+  g_object_class_install_property(
+      gobject_class, PROP_DRY,
+      g_param_spec_float(
+          "dry", "Dry", "Dry factor", 0.0f, 1.0f, 0.5f,
+          static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                   GST_PARAM_CONTROLLABLE)));
+
+  g_object_class_install_property(
+      gobject_class, PROP_WET,
+      g_param_spec_float(
+          "wet", "Wet", "Wet factor", 0.0f, 1.0f, 0.5f,
+          static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                   GST_PARAM_CONTROLLABLE)));
+
+  gst_element_class_set_details_simple(gstelement_class, "MyFilter", "Generic",
+                                       "Generic Template Element",
+                                       " <<user@hostname.org>>");
+
+  gst_element_class_add_pad_template(gstelement_class,
+                                     gst_static_pad_template_get(&src_factory));
+  gst_element_class_add_pad_template(
+      gstelement_class, gst_static_pad_template_get(&sink_factory));
+
+  gstelement_class->change_state = gst_my_filter_change_state;
 }
 
 /* initialize the new element
@@ -153,86 +177,105 @@ gst_my_filter_class_init (GstMyFilterClass * klass)
  * set pad callback functions
  * initialize instance structure
  */
-static void
-gst_my_filter_init (GstMyFilter * filter)
-{
-  filter->sinkpad = gst_pad_new_from_static_template (&sink_factory, "sink");
-  gst_pad_set_event_function (filter->sinkpad,
-      GST_DEBUG_FUNCPTR (gst_my_filter_sink_event));
-  gst_pad_set_chain_function (filter->sinkpad,
-      GST_DEBUG_FUNCPTR (gst_my_filter_chain));
-  GST_PAD_SET_PROXY_CAPS (filter->sinkpad);
-  gst_element_add_pad (GST_ELEMENT (filter), filter->sinkpad);
+static void gst_my_filter_init(GstMyFilter *filter) {
+  filter->sinkpad = gst_pad_new_from_static_template(&sink_factory, "sink");
+  gst_pad_set_event_function(filter->sinkpad,
+                             GST_DEBUG_FUNCPTR(gst_my_filter_sink_event));
+  gst_pad_set_chain_function(filter->sinkpad,
+                             GST_DEBUG_FUNCPTR(gst_my_filter_chain));
+  GST_PAD_SET_PROXY_CAPS(filter->sinkpad);
+  gst_element_add_pad(GST_ELEMENT(filter), filter->sinkpad);
 
-  filter->srcpad = gst_pad_new_from_static_template (&src_factory, "src");
-  GST_PAD_SET_PROXY_CAPS (filter->srcpad);
-  gst_element_add_pad (GST_ELEMENT (filter), filter->srcpad);
+  filter->srcpad = gst_pad_new_from_static_template(&src_factory, "src");
+  GST_PAD_SET_PROXY_CAPS(filter->srcpad);
+  gst_element_add_pad(GST_ELEMENT(filter), filter->srcpad);
 
   filter->silent = FALSE;
 }
 
-static void
-gst_my_filter_set_property (GObject * object, guint prop_id,
-    const GValue * value, GParamSpec * pspec)
-{
-  GstMyFilter *filter = GST_MYFILTER (object);
+static void gst_my_filter_set_property(GObject *object, guint prop_id,
+                                       const GValue *value, GParamSpec *pspec) {
+  GstMyFilter *filter = GST_MYFILTER(object);
+  auto* priv = static_cast<GstMyFilterPrivate*>(gst_my_filter_get_instance_private(filter));
 
   switch (prop_id) {
-    case PROP_SILENT:
-      filter->silent = g_value_get_boolean (value);
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-      break;
+  case PROP_SILENT:
+    filter->silent = g_value_get_boolean(value);
+    break;
+  case PROP_DELAY:
+    priv->delay = g_value_get_float(value);
+    break;
+  case PROP_FEEDBACK:
+    priv->feedback = g_value_get_float(value);
+    break;
+  case PROP_DRY:
+    priv->dry = g_value_get_float(value);
+    break;
+  case PROP_WET:
+    priv->wet = g_value_get_float(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
   }
 }
 
-static void
-gst_my_filter_get_property (GObject * object, guint prop_id,
-    GValue * value, GParamSpec * pspec)
-{
-  GstMyFilter *filter = GST_MYFILTER (object);
+static void gst_my_filter_get_property(GObject *object, guint prop_id,
+                                       GValue *value, GParamSpec *pspec) {
+  GstMyFilter *filter = GST_MYFILTER(object);
+  auto* priv = static_cast<GstMyFilterPrivate*>(gst_my_filter_get_instance_private(filter));
 
   switch (prop_id) {
-    case PROP_SILENT:
-      g_value_set_boolean (value, filter->silent);
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-      break;
+  case PROP_SILENT:
+    g_value_set_boolean(value, filter->silent);
+    break;
+  case PROP_DELAY:
+    g_value_set_float(value, priv->delay.load());
+    break;
+  case PROP_FEEDBACK:
+    g_value_set_float(value, priv->feedback.load());
+    break;
+  case PROP_DRY:
+    g_value_set_float(value, priv->dry.load());
+    break;
+  case PROP_WET:
+    g_value_set_float(value, priv->wet.load());
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
   }
 }
 
 /* GstElement vmethod implementations */
 
 /* this function handles sink events */
-static gboolean
-gst_my_filter_sink_event (GstPad * pad, GstObject * parent,
-    GstEvent * event)
-{
+static gboolean gst_my_filter_sink_event(GstPad *pad, GstObject *parent,
+                                         GstEvent *event) {
   GstMyFilter *filter;
   gboolean ret;
 
-  filter = GST_MYFILTER (parent);
+  filter = GST_MYFILTER(parent);
 
-  GST_LOG_OBJECT (filter, "Received %s event: %" GST_PTR_FORMAT,
-      GST_EVENT_TYPE_NAME (event), event);
+  GST_LOG_OBJECT(filter, "Received %s event: %" GST_PTR_FORMAT,
+                 GST_EVENT_TYPE_NAME(event), event);
 
-  switch (GST_EVENT_TYPE (event)) {
-    case GST_EVENT_CAPS:
-    {
-      GstCaps *caps;
+  switch (GST_EVENT_TYPE(event)) {
+  case GST_EVENT_CAPS: {
+    GstCaps *caps;
 
-      gst_event_parse_caps (event, &caps);
-      /* do something with the caps */
+    gst_event_parse_caps(event, &caps);
+    /* do something with the caps */
+    auto* c = gst_caps_to_string(caps);
+    g_print("caps x: %s\n", c);
 
-      /* and forward */
-      ret = gst_pad_event_default (pad, parent, event);
-      break;
-    }
-    default:
-      ret = gst_pad_event_default (pad, parent, event);
-      break;
+    /* and forward */
+    ret = gst_pad_event_default(pad, parent, event);
+    break;
+  }
+  default:
+    ret = gst_pad_event_default(pad, parent, event);
+    break;
   }
   return ret;
 }
@@ -240,36 +283,67 @@ gst_my_filter_sink_event (GstPad * pad, GstObject * parent,
 /* chain function
  * this function does the actual processing
  */
-static GstFlowReturn
-gst_my_filter_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
-{
+static GstFlowReturn gst_my_filter_chain(GstPad *pad, GstObject *parent,
+                                         GstBuffer *buf) {
   GstMyFilter *filter;
 
-  filter = GST_MYFILTER (parent);
+  filter = GST_MYFILTER(parent);
 
   if (filter->silent == FALSE)
-    g_print ("I'm plugged, therefore I'm in.\n");
+    g_print("I'm plugged, therefore I'm in.\n");
 
   /* just push out the incoming buffer without touching it */
-  return gst_pad_push (filter->srcpad, buf);
+  return gst_pad_push(filter->srcpad, buf);
 }
 
+static GstStateChangeReturn
+gst_my_filter_change_state (GstElement *element, GstStateChange transition)
+{
+  GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
+  GstMyFilter *filter = GST_MYFILTER (element);
+
+  switch (transition) {
+  case GST_STATE_CHANGE_READY_TO_PAUSED: {
+    GstCaps* caps = gst_pad_get_current_caps(filter->sinkpad);
+    auto* c = gst_caps_to_string(caps);
+    g_print("caps: %s\n", c);
+    // if(caps) {
+    //     // auto* structure = gst_caps_get_structure(caps, 0);
+    // }
+    break;
+  }
+  default:
+    break;
+  }
+
+  ret = GST_ELEMENT_CLASS (parent_class)->change_state (element, transition);
+  if (ret == GST_STATE_CHANGE_FAILURE)
+    return ret;
+
+  switch (transition) {
+  // case GST_STATE_CHANGE_READY_TO_NULL:
+    // gst_my_filter_free_memory (filter);
+    break;
+  default:
+    break;
+  }
+
+  return ret;
+}
 
 /* entry point to initialize the plug-in
  * initialize the plug-in itself
  * register the element factories and other features
  */
-static gboolean
-myfilter_init (GstPlugin * myfilter)
-{
+static gboolean myfilter_init(GstPlugin *myfilter) {
   /* debug category for filtering log messages
    *
    * exchange the string 'Template myfilter' with your description
    */
-  GST_DEBUG_CATEGORY_INIT (gst_my_filter_debug, "myfilter",
-      0, "Template myfilter");
+  GST_DEBUG_CATEGORY_INIT(gst_my_filter_debug, "myfilter", 0,
+                          "Template myfilter");
 
-  return GST_ELEMENT_REGISTER (my_filter, myfilter);
+  return GST_ELEMENT_REGISTER(my_filter, myfilter);
 }
 
 /* PACKAGE: this is usually set by meson depending on some _INIT macro
@@ -285,9 +359,6 @@ myfilter_init (GstPlugin * myfilter)
  *
  * exchange the string 'Template myfilter' with your myfilter description
  */
-GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
-    GST_VERSION_MINOR,
-    myfilter,
-    "my_filter",
-    myfilter_init,
-    PACKAGE_VERSION, GST_LICENSE, GST_PACKAGE_NAME, GST_PACKAGE_ORIGIN)
+GST_PLUGIN_DEFINE(GST_VERSION_MAJOR, GST_VERSION_MINOR, myfilter, "my_filter",
+                  myfilter_init, PACKAGE_VERSION, GST_LICENSE, GST_PACKAGE_NAME,
+                  GST_PACKAGE_ORIGIN)
