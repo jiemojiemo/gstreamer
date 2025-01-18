@@ -90,20 +90,10 @@ channels=(int)1,
 layout=(string) interleaved)";
 
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
-    "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("ANY"));
+    "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS(ALLOWED_CAPS));
 
 static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
-    "src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS("ANY"));
-
-// typedef struct {
-//   std::atomic<float> delay = {0.0f};
-//   std::atomic<float> feedback = {0.0f};
-//   std::atomic<float> dry = {0.5f};
-//   std::atomic<float> wet = {0.5f};
-//
-//   GstAudioInfo info;
-//   std::unique_ptr<libaa::DelayLine<float>> delay_line;
-// } GstMyFilterPrivate;
+    "src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS(ALLOWED_CAPS));
 
 constexpr static float kMaxDelayMs = 2000.0f;
 constexpr static float kDefaultDelay = 0.0f;
@@ -196,25 +186,10 @@ static void gst_my_filter_class_init(GstMyFilterClass *klass) {
                                        "Generic Template Element",
                                        " <<user@hostname.org>>");
 
-  // pad_template = gst_pad_template_new ("src", GST_PAD_SRC, GST_PAD_ALWAYS,
-  //   allowed_caps);
-  // gst_element_class_add_pad_template (element_class, pad_template);
-  //
-  // pad_template = gst_pad_template_new ("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
-  //     allowed_caps);
-  // gst_element_class_add_pad_template (element_class, pad_template);
-  //
-
-  auto *caps = gst_caps_from_string(ALLOWED_CAPS);
-  auto *pad_template =
-      gst_pad_template_new("src", GST_PAD_SRC, GST_PAD_ALWAYS, caps);
-  gst_element_class_add_pad_template(gstelement_class, pad_template);
-  pad_template =
-      gst_pad_template_new("sink", GST_PAD_SINK, GST_PAD_ALWAYS, caps);
-  gst_element_class_add_pad_template(gstelement_class, pad_template);
-  gst_caps_unref(caps);
-
-  // gstelement_class->change_state = gst_my_filter_change_state;
+  gst_element_class_add_pad_template (gstelement_class,
+      gst_static_pad_template_get (&src_factory));
+  gst_element_class_add_pad_template (gstelement_class,
+      gst_static_pad_template_get (&sink_factory));
 }
 
 /* initialize the new element
@@ -236,8 +211,6 @@ static void gst_my_filter_init(GstMyFilter *filter) {
   filter->srcpad = gst_pad_new_from_static_template(&src_factory, "src");
   GST_PAD_SET_PROXY_CAPS(filter->srcpad);
   gst_element_add_pad(GST_ELEMENT(filter), filter->srcpad);
-
-  filter->silent = FALSE;
 }
 
 static void gst_my_filter_set_property(GObject *object, guint prop_id,
@@ -246,9 +219,6 @@ static void gst_my_filter_set_property(GObject *object, guint prop_id,
   auto *priv = static_cast<GstMyFilterPrivate *>(filter->impl);
 
   switch (prop_id) {
-  case PROP_SILENT:
-    filter->silent = g_value_get_boolean(value);
-    break;
   case PROP_DELAY:
     priv->delay = g_value_get_float(value);
     break;
@@ -273,9 +243,6 @@ static void gst_my_filter_get_property(GObject *object, guint prop_id,
   auto *priv = static_cast<GstMyFilterPrivate *>(filter->impl);
 
   switch (prop_id) {
-  case PROP_SILENT:
-    g_value_set_boolean(value, filter->silent);
-    break;
   case PROP_DELAY:
     g_value_set_float(value, priv->delay.load());
     break;
@@ -354,9 +321,6 @@ static GstFlowReturn gst_my_filter_chain(GstPad *pad, GstObject *parent,
   filter = GST_MYFILTER(parent);
   auto *priv = static_cast<GstMyFilterPrivate *>(filter->impl);
 
-  if (filter->silent == FALSE)
-    g_print("I'm plugged, therefore I'm in.\n");
-
   // get buffer
   GstMapInfo map;
   gst_buffer_map (buf, &map, GST_MAP_READWRITE);
@@ -381,40 +345,6 @@ static GstFlowReturn gst_my_filter_chain(GstPad *pad, GstObject *parent,
 
   /* just push out the incoming buffer without touching it */
   return gst_pad_push(filter->srcpad, buf);
-}
-
-static GstStateChangeReturn
-gst_my_filter_change_state(GstElement *element, GstStateChange transition) {
-  GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
-  GstMyFilter *filter = GST_MYFILTER(element);
-
-  switch (transition) {
-  case GST_STATE_CHANGE_READY_TO_PAUSED: {
-    GstCaps *caps = gst_pad_get_current_caps(filter->sinkpad);
-    auto *c = gst_caps_to_string(caps);
-    g_print("caps: %s\n", c);
-    // if(caps) {
-    //     // auto* structure = gst_caps_get_structure(caps, 0);
-    // }
-    break;
-  }
-  default:
-    break;
-  }
-
-  ret = GST_ELEMENT_CLASS(parent_class)->change_state(element, transition);
-  if (ret == GST_STATE_CHANGE_FAILURE)
-    return ret;
-
-  switch (transition) {
-    // case GST_STATE_CHANGE_READY_TO_NULL:
-    // gst_my_filter_free_memory (filter);
-    break;
-  default:
-    break;
-  }
-
-  return ret;
 }
 
 /* entry point to initialize the plug-in

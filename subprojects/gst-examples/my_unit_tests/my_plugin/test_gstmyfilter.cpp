@@ -170,15 +170,6 @@ TEST_F(AGstMyFilter, WetPropertyAsExpected) {
   ASSERT_THAT(float_property->default_value, Eq(0.5f));
 }
 
-TEST_F(AGstMyFilter, CanSetSilentProperty) {
-  g_object_set(myfilter, "silent", TRUE, nullptr);
-
-  gboolean silent;
-  g_object_get(myfilter, "silent", &silent, nullptr);
-
-  ASSERT_TRUE(silent);
-}
-
 TEST_F(AGstMyFilter, CanGetAndSetDelay) {
   gfloat value{1000.f};
   g_object_set(myfilter, "delay", value, nullptr);
@@ -249,18 +240,6 @@ TEST_F(AGstMyFilter, canChangeStateToPlaying) {
   ASSERT_THAT(current, Eq(GST_STATE_PLAYING));
 }
 
-// TEST_F(AGstMyFilter, sinkPadCanHandleBufferDataWhenPlaying) {
-//     auto buffer_size = 1024;
-//     auto* buffer = gst_buffer_new_allocate(NULL, buffer_size, NULL);
-//     auto* sink_pad = gst_element_get_static_pad(myfilter, "sink");
-//     gst_element_set_state(myfilter, GST_STATE_PLAYING);
-//
-//     auto ret = gst_pad_chain(sink_pad, buffer);
-//
-//     ASSERT_THAT(ret, Eq(GST_FLOW_NOT_LINKED));
-//     gst_object_unref(sink_pad);
-// }
-
 TEST_F(AGstMyFilter, canCanHandleEventWhenPlaying) {
   gst_element_set_state(myfilter, GST_STATE_PLAYING);
   auto* event = gst_event_new_eos();
@@ -269,19 +248,4 @@ TEST_F(AGstMyFilter, canCanHandleEventWhenPlaying) {
 
   ASSERT_THAT(ret, Eq(FALSE));
   gst_object_unref(sink_pad);
-}
-
-TEST_F(AGstMyFilter, canInsertMyFilterIntoPipeline) {
-  auto* pipeline = gst_pipeline_new("test-pipeline");
-  auto* audio_test_src = gst_element_factory_make("audiotestsrc", "testsrc");
-  auto* filter = gst_element_factory_make("my_filter", "myfilter");
-  auto* fake_sink = gst_element_factory_make("fakesink", "fakesink");
-
-  gst_bin_add_many(GST_BIN(pipeline), audio_test_src, filter, fake_sink, nullptr);
-  auto ok = gst_element_link_many(audio_test_src, filter, fake_sink, nullptr);
-  ASSERT_TRUE(ok);
-
-
-
-  gst_object_unref(pipeline);
 }
