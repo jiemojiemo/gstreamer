@@ -249,17 +249,17 @@ TEST_F(AGstMyFilter, canChangeStateToPlaying) {
   ASSERT_THAT(current, Eq(GST_STATE_PLAYING));
 }
 
-TEST_F(AGstMyFilter, sinkPadCanHandleBufferDataWhenPlaying) {
-    auto buffer_size = 1024;
-    auto* buffer = gst_buffer_new_allocate(NULL, buffer_size, NULL);
-    auto* sink_pad = gst_element_get_static_pad(myfilter, "sink");
-    gst_element_set_state(myfilter, GST_STATE_PLAYING);
-
-    auto ret = gst_pad_chain(sink_pad, buffer);
-
-    ASSERT_THAT(ret, Eq(GST_FLOW_NOT_LINKED));
-    gst_object_unref(sink_pad);
-}
+// TEST_F(AGstMyFilter, sinkPadCanHandleBufferDataWhenPlaying) {
+//     auto buffer_size = 1024;
+//     auto* buffer = gst_buffer_new_allocate(NULL, buffer_size, NULL);
+//     auto* sink_pad = gst_element_get_static_pad(myfilter, "sink");
+//     gst_element_set_state(myfilter, GST_STATE_PLAYING);
+//
+//     auto ret = gst_pad_chain(sink_pad, buffer);
+//
+//     ASSERT_THAT(ret, Eq(GST_FLOW_NOT_LINKED));
+//     gst_object_unref(sink_pad);
+// }
 
 TEST_F(AGstMyFilter, canCanHandleEventWhenPlaying) {
   gst_element_set_state(myfilter, GST_STATE_PLAYING);

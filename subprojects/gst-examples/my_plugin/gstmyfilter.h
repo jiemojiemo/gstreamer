@@ -62,6 +62,8 @@ struct _GstMyFilter
   GstPad *sinkpad, *srcpad;
 
   gboolean silent;
+
+  void* impl;
 };
 
 G_END_DECLS

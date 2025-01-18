@@ -95,19 +95,36 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
 static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
     "src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS("ANY"));
 
+// typedef struct {
+//   std::atomic<float> delay = {0.0f};
+//   std::atomic<float> feedback = {0.0f};
+//   std::atomic<float> dry = {0.5f};
+//   std::atomic<float> wet = {0.5f};
+//
+//   GstAudioInfo info;
+//   std::unique_ptr<libaa::DelayLine<float>> delay_line;
+// } GstMyFilterPrivate;
+
 constexpr static float kMaxDelayMs = 2000.0f;
-typedef struct {
-  std::atomic<float> delay;
-  std::atomic<float> feedback;
-  std::atomic<float> dry;
-  std::atomic<float> wet;
+constexpr static float kDefaultDelay = 0.0f;
+constexpr static float kDefaultFeedback = 0.0f;
+constexpr static float kDefaultDry = 0.5f;
+constexpr static float kDefaultWet = 0.5f;
+
+
+class GstMyFilterPrivate {
+public:
+  std::atomic<float> delay = {kDefaultDelay};
+  std::atomic<float> feedback = {kDefaultFeedback};
+  std::atomic<float> dry = {kDefaultDry};
+  std::atomic<float> wet = {kDefaultWet};
 
   GstAudioInfo info;
   std::unique_ptr<libaa::DelayLine<float>> delay_line;
-} GstMyFilterPrivate;
+};
 
 #define gst_my_filter_parent_class parent_class
-G_DEFINE_TYPE_WITH_PRIVATE(GstMyFilter, gst_my_filter, GST_TYPE_ELEMENT);
+G_DEFINE_TYPE(GstMyFilter, gst_my_filter, GST_TYPE_ELEMENT);
 
 GST_ELEMENT_REGISTER_DEFINE(my_filter, "my_filter", GST_RANK_NONE,
                             GST_TYPE_MYFILTER);
@@ -147,27 +164,27 @@ static void gst_my_filter_class_init(GstMyFilterClass *klass) {
   g_object_class_install_property(
       gobject_class, PROP_DELAY,
       g_param_spec_float(
-          "delay", "Delay", "Delay time in milliseconds", 0.0f, kMaxDelayMs, 0.0f,
+          "delay", "Delay", "Delay time in milliseconds", 0.0f, kMaxDelayMs, kDefaultDelay,
           static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
                                    GST_PARAM_CONTROLLABLE)));
 
   g_object_class_install_property(
       gobject_class, PROP_FEEDBACK,
       g_param_spec_float(
-          "feedback", "Feedback", "Feedback factor", 0.0f, 1.0f, 0.0f,
+          "feedback", "Feedback", "Feedback factor", 0.0f, 1.0f, kDefaultFeedback,
           static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
                                    GST_PARAM_CONTROLLABLE)));
 
   g_object_class_install_property(
       gobject_class, PROP_DRY,
-      g_param_spec_float("dry", "Dry", "Dry factor", 0.0f, 1.0f, 0.5f,
+      g_param_spec_float("dry", "Dry", "Dry factor", 0.0f, 1.0f, kDefaultDry,
                          static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                   G_PARAM_STATIC_STRINGS |
                                                   GST_PARAM_CONTROLLABLE)));
 
   g_object_class_install_property(
       gobject_class, PROP_WET,
-      g_param_spec_float("wet", "Wet", "Wet factor", 0.0f, 1.0f, 0.5f,
+      g_param_spec_float("wet", "Wet", "Wet factor", 0.0f, 1.0f, kDefaultWet,
                          static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                   G_PARAM_STATIC_STRINGS |
                                                   GST_PARAM_CONTROLLABLE)));
@@ -203,6 +220,8 @@ static void gst_my_filter_class_init(GstMyFilterClass *klass) {
  * initialize instance structure
  */
 static void gst_my_filter_init(GstMyFilter *filter) {
+  filter->impl = new GstMyFilterPrivate();
+
   filter->sinkpad = gst_pad_new_from_static_template(&sink_factory, "sink");
   gst_pad_set_event_function(filter->sinkpad,
                              GST_DEBUG_FUNCPTR(gst_my_filter_sink_event));
@@ -221,8 +240,7 @@ static void gst_my_filter_init(GstMyFilter *filter) {
 static void gst_my_filter_set_property(GObject *object, guint prop_id,
                                        const GValue *value, GParamSpec *pspec) {
   GstMyFilter *filter = GST_MYFILTER(object);
-  auto *priv = static_cast<GstMyFilterPrivate *>(
-      gst_my_filter_get_instance_private(filter));
+  auto *priv = static_cast<GstMyFilterPrivate *>(filter->impl);
 
   switch (prop_id) {
   case PROP_SILENT:
@@ -249,8 +267,7 @@ static void gst_my_filter_set_property(GObject *object, guint prop_id,
 static void gst_my_filter_get_property(GObject *object, guint prop_id,
                                        GValue *value, GParamSpec *pspec) {
   GstMyFilter *filter = GST_MYFILTER(object);
-  auto *priv = static_cast<GstMyFilterPrivate *>(
-      gst_my_filter_get_instance_private(filter));
+  auto *priv = static_cast<GstMyFilterPrivate *>(filter->impl);
 
   switch (prop_id) {
   case PROP_SILENT:
@@ -283,8 +300,7 @@ static gboolean gst_my_filter_sink_event(GstPad *pad, GstObject *parent,
   gboolean ret;
 
   filter = GST_MYFILTER(parent);
-  auto *priv = static_cast<GstMyFilterPrivate *>(
-    gst_my_filter_get_instance_private(filter));
+  auto *priv = static_cast<GstMyFilterPrivate *>(filter->impl);
 
   GST_LOG_OBJECT(filter, "Received %s event: %" GST_PTR_FORMAT,
                  GST_EVENT_TYPE_NAME(event), event);
@@ -327,9 +343,32 @@ static GstFlowReturn gst_my_filter_chain(GstPad *pad, GstObject *parent,
   GstMyFilter *filter;
 
   filter = GST_MYFILTER(parent);
+  auto *priv = static_cast<GstMyFilterPrivate *>(filter->impl);
 
   if (filter->silent == FALSE)
     g_print("I'm plugged, therefore I'm in.\n");
+
+  // get buffer
+  GstMapInfo map;
+  gst_buffer_map (buf, &map, GST_MAP_READWRITE);
+  auto num_samples = map.size / GST_AUDIO_INFO_BPS(&priv->info);
+  auto* float_buffer = reinterpret_cast<float*>(map.data);
+
+  // parameters
+  auto delay_samples = priv->delay.load() / 1000.0f * priv->info.rate;
+  auto feedback = priv->feedback.load();
+  auto dry = priv->dry.load();
+  auto wet = priv->wet.load();
+
+  for(auto i = 0; i < num_samples; ++i) {
+    auto in = float_buffer[i];
+    auto d_y = priv->delay_line->get(delay_samples);
+    auto d_x = in + feedback * d_y;
+    priv->delay_line->push(d_x);
+
+    float_buffer[i] = dry * in + wet * d_y;
+  }
+
 
   /* just push out the incoming buffer without touching it */
   return gst_pad_push(filter->srcpad, buf);

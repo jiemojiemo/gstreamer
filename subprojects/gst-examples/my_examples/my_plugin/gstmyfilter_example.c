@@ -37,6 +37,9 @@ tutorial_main (int argc, char *argv[])
     return -1;
   }
 
+  g_object_set(my_filter, "delay", 1000.0f, NULL);
+  g_object_set(my_filter, "feedback", 0.8f, NULL);
+
   /* Start playing */
   gst_element_set_state (pipeline, GST_STATE_PLAYING);
 
