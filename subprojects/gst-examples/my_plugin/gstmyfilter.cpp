@@ -133,6 +133,8 @@ static void gst_my_filter_set_property(GObject *object, guint prop_id,
                                        const GValue *value, GParamSpec *pspec);
 static void gst_my_filter_get_property(GObject *object, guint prop_id,
                                        GValue *value, GParamSpec *pspec);
+static void gst_my_filter_finalize(GObject* object);
+
 
 static gboolean gst_my_filter_sink_event(GstPad *pad, GstObject *parent,
                                          GstEvent *event);
@@ -155,6 +157,7 @@ static void gst_my_filter_class_init(GstMyFilterClass *klass) {
 
   gobject_class->set_property = gst_my_filter_set_property;
   gobject_class->get_property = gst_my_filter_get_property;
+  gobject_class->finalize = gst_my_filter_finalize;
 
   g_object_class_install_property(
       gobject_class, PROP_SILENT,
@@ -289,6 +292,12 @@ static void gst_my_filter_get_property(GObject *object, guint prop_id,
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
   }
+}
+
+static void gst_my_filter_finalize(GObject* object) {
+  GstMyFilter *filter = GST_MYFILTER(object);
+  auto *priv = static_cast<GstMyFilterPrivate *>(filter->impl);
+  delete priv;
 }
 
 /* GstElement vmethod implementations */
