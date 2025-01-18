@@ -53,3 +53,8 @@ executable('playback-tutorial-6',
 executable('playback-tutorial-7',
            ['playback-tutorial-7.c'],
            dependencies : [gst_dep, m_dep, gstvideo_dep])
+
+# my plugin test example
+executable('gstmyfilter_example',
+           ['my_plugin/gstmyfilter_example.c'],
+           dependencies : [gst_dep, m_dep])

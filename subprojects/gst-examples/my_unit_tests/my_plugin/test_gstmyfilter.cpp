@@ -39,7 +39,6 @@ TEST_F(AGstMyFilter, sinkPadTemplateAsExpected) {
   ASSERT_THAT(pad_template->name_template, StrEq("sink"));
   ASSERT_THAT(pad_template->direction, Eq(GstPadDirection::GST_PAD_SINK));
   ASSERT_THAT(pad_template->presence, Eq(GstPadPresence::GST_PAD_ALWAYS));
-  ASSERT_TRUE(gst_caps_is_any(pad_template->caps));
 }
 
 TEST_F(AGstMyFilter, hasSourcePadTemplate) {
@@ -54,7 +53,6 @@ TEST_F(AGstMyFilter, sourcePadTemplateAsExpected) {
   ASSERT_THAT(pad_template->name_template, StrEq("src"));
   ASSERT_THAT(pad_template->direction, Eq(GstPadDirection::GST_PAD_SRC));
   ASSERT_THAT(pad_template->presence, Eq(GstPadPresence::GST_PAD_ALWAYS));
-  ASSERT_TRUE(gst_caps_is_any(pad_template->caps));
 }
 
 TEST_F(AGstMyFilter, hasStaicSinkPad) {
@@ -271,4 +269,19 @@ TEST_F(AGstMyFilter, canCanHandleEventWhenPlaying) {
 
   ASSERT_THAT(ret, Eq(FALSE));
   gst_object_unref(sink_pad);
+}
+
+TEST_F(AGstMyFilter, canInsertMyFilterIntoPipeline) {
+  auto* pipeline = gst_pipeline_new("test-pipeline");
+  auto* audio_test_src = gst_element_factory_make("audiotestsrc", "testsrc");
+  auto* filter = gst_element_factory_make("my_filter", "myfilter");
+  auto* fake_sink = gst_element_factory_make("fakesink", "fakesink");
+
+  gst_bin_add_many(GST_BIN(pipeline), audio_test_src, filter, fake_sink, nullptr);
+  auto ok = gst_element_link_many(audio_test_src, filter, fake_sink, nullptr);
+  ASSERT_TRUE(ok);
+
+
+
+  gst_object_unref(pipeline);
 }

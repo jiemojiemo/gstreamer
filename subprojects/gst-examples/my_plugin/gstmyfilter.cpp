@@ -60,10 +60,12 @@
 #include <config.h>
 #endif
 
-#include <gst/gst.h>
-#include <atomic>
-#include "gstmyfilter.h"
 #include "aa_delay_line.h"
+#include "gstmyfilter.h"
+
+#include <atomic>
+#include <gst/gst.h>
+#include <gst/audio/audio.h>
 
 GST_DEBUG_CATEGORY_STATIC(gst_my_filter_debug);
 #define GST_CAT_DEFAULT gst_my_filter_debug
@@ -80,19 +82,29 @@ enum { PROP_0, PROP_SILENT, PROP_DELAY, PROP_FEEDBACK, PROP_DRY, PROP_WET };
  *
  * describe the real formats here.
  */
+
+const char *ALLOWED_CAPS = R"(audio/x-raw,
+format=(string) {F32LE},
+rate=(int)[1,48000],
+channels=(int)1,
+layout=(string) interleaved)";
+
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
     "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("ANY"));
 
 static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
     "src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS("ANY"));
 
+constexpr static float kMaxDelayMs = 2000.0f;
 typedef struct {
   std::atomic<float> delay;
   std::atomic<float> feedback;
   std::atomic<float> dry;
   std::atomic<float> wet;
+
+  GstAudioInfo info;
   std::unique_ptr<libaa::DelayLine<float>> delay_line;
-}GstMyFilterPrivate;
+} GstMyFilterPrivate;
 
 #define gst_my_filter_parent_class parent_class
 G_DEFINE_TYPE_WITH_PRIVATE(GstMyFilter, gst_my_filter, GST_TYPE_ELEMENT);
@@ -110,7 +122,7 @@ static gboolean gst_my_filter_sink_event(GstPad *pad, GstObject *parent,
 static GstFlowReturn gst_my_filter_chain(GstPad *pad, GstObject *parent,
                                          GstBuffer *buf);
 static GstStateChangeReturn
-gst_my_filter_change_state (GstElement *element, GstStateChange transition);
+gst_my_filter_change_state(GstElement *element, GstStateChange transition);
 
 /* GObject vmethod implementations */
 
@@ -135,7 +147,7 @@ static void gst_my_filter_class_init(GstMyFilterClass *klass) {
   g_object_class_install_property(
       gobject_class, PROP_DELAY,
       g_param_spec_float(
-          "delay", "Delay", "Delay time in milliseconds", 0.0f, 2000.0f, 0.0f,
+          "delay", "Delay", "Delay time in milliseconds", 0.0f, kMaxDelayMs, 0.0f,
           static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
                                    GST_PARAM_CONTROLLABLE)));
 
@@ -148,28 +160,41 @@ static void gst_my_filter_class_init(GstMyFilterClass *klass) {
 
   g_object_class_install_property(
       gobject_class, PROP_DRY,
-      g_param_spec_float(
-          "dry", "Dry", "Dry factor", 0.0f, 1.0f, 0.5f,
-          static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
-                                   GST_PARAM_CONTROLLABLE)));
+      g_param_spec_float("dry", "Dry", "Dry factor", 0.0f, 1.0f, 0.5f,
+                         static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                  G_PARAM_STATIC_STRINGS |
+                                                  GST_PARAM_CONTROLLABLE)));
 
   g_object_class_install_property(
       gobject_class, PROP_WET,
-      g_param_spec_float(
-          "wet", "Wet", "Wet factor", 0.0f, 1.0f, 0.5f,
-          static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
-                                   GST_PARAM_CONTROLLABLE)));
+      g_param_spec_float("wet", "Wet", "Wet factor", 0.0f, 1.0f, 0.5f,
+                         static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                  G_PARAM_STATIC_STRINGS |
+                                                  GST_PARAM_CONTROLLABLE)));
 
   gst_element_class_set_details_simple(gstelement_class, "MyFilter", "Generic",
                                        "Generic Template Element",
                                        " <<user@hostname.org>>");
 
-  gst_element_class_add_pad_template(gstelement_class,
-                                     gst_static_pad_template_get(&src_factory));
-  gst_element_class_add_pad_template(
-      gstelement_class, gst_static_pad_template_get(&sink_factory));
+  // pad_template = gst_pad_template_new ("src", GST_PAD_SRC, GST_PAD_ALWAYS,
+  //   allowed_caps);
+  // gst_element_class_add_pad_template (element_class, pad_template);
+  //
+  // pad_template = gst_pad_template_new ("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
+  //     allowed_caps);
+  // gst_element_class_add_pad_template (element_class, pad_template);
+  //
 
-  gstelement_class->change_state = gst_my_filter_change_state;
+  auto *caps = gst_caps_from_string(ALLOWED_CAPS);
+  auto *pad_template =
+      gst_pad_template_new("src", GST_PAD_SRC, GST_PAD_ALWAYS, caps);
+  gst_element_class_add_pad_template(gstelement_class, pad_template);
+  pad_template =
+      gst_pad_template_new("sink", GST_PAD_SINK, GST_PAD_ALWAYS, caps);
+  gst_element_class_add_pad_template(gstelement_class, pad_template);
+  gst_caps_unref(caps);
+
+  // gstelement_class->change_state = gst_my_filter_change_state;
 }
 
 /* initialize the new element
@@ -196,7 +221,8 @@ static void gst_my_filter_init(GstMyFilter *filter) {
 static void gst_my_filter_set_property(GObject *object, guint prop_id,
                                        const GValue *value, GParamSpec *pspec) {
   GstMyFilter *filter = GST_MYFILTER(object);
-  auto* priv = static_cast<GstMyFilterPrivate*>(gst_my_filter_get_instance_private(filter));
+  auto *priv = static_cast<GstMyFilterPrivate *>(
+      gst_my_filter_get_instance_private(filter));
 
   switch (prop_id) {
   case PROP_SILENT:
@@ -223,7 +249,8 @@ static void gst_my_filter_set_property(GObject *object, guint prop_id,
 static void gst_my_filter_get_property(GObject *object, guint prop_id,
                                        GValue *value, GParamSpec *pspec) {
   GstMyFilter *filter = GST_MYFILTER(object);
-  auto* priv = static_cast<GstMyFilterPrivate*>(gst_my_filter_get_instance_private(filter));
+  auto *priv = static_cast<GstMyFilterPrivate *>(
+      gst_my_filter_get_instance_private(filter));
 
   switch (prop_id) {
   case PROP_SILENT:
@@ -256,6 +283,8 @@ static gboolean gst_my_filter_sink_event(GstPad *pad, GstObject *parent,
   gboolean ret;
 
   filter = GST_MYFILTER(parent);
+  auto *priv = static_cast<GstMyFilterPrivate *>(
+    gst_my_filter_get_instance_private(filter));
 
   GST_LOG_OBJECT(filter, "Received %s event: %" GST_PTR_FORMAT,
                  GST_EVENT_TYPE_NAME(event), event);
@@ -265,9 +294,19 @@ static gboolean gst_my_filter_sink_event(GstPad *pad, GstObject *parent,
     GstCaps *caps;
 
     gst_event_parse_caps(event, &caps);
+
     /* do something with the caps */
-    auto* c = gst_caps_to_string(caps);
-    g_print("caps x: %s\n", c);
+    if(!gst_audio_info_from_caps(&priv->info, caps)) {
+      g_printerr("Failed to parse caps\n");
+      return FALSE;
+    }
+
+    if(priv->delay_line == nullptr) {
+      priv->delay_line = std::make_unique<libaa::DelayLine<float>>();
+    }
+
+    const auto max_delay_samples = static_cast<size_t>(kMaxDelayMs / 1000.0f * priv->info.rate);
+    priv->delay_line->resize(max_delay_samples);
 
     /* and forward */
     ret = gst_pad_event_default(pad, parent, event);
@@ -297,15 +336,14 @@ static GstFlowReturn gst_my_filter_chain(GstPad *pad, GstObject *parent,
 }
 
 static GstStateChangeReturn
-gst_my_filter_change_state (GstElement *element, GstStateChange transition)
-{
+gst_my_filter_change_state(GstElement *element, GstStateChange transition) {
   GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
-  GstMyFilter *filter = GST_MYFILTER (element);
+  GstMyFilter *filter = GST_MYFILTER(element);
 
   switch (transition) {
   case GST_STATE_CHANGE_READY_TO_PAUSED: {
-    GstCaps* caps = gst_pad_get_current_caps(filter->sinkpad);
-    auto* c = gst_caps_to_string(caps);
+    GstCaps *caps = gst_pad_get_current_caps(filter->sinkpad);
+    auto *c = gst_caps_to_string(caps);
     g_print("caps: %s\n", c);
     // if(caps) {
     //     // auto* structure = gst_caps_get_structure(caps, 0);
@@ -316,12 +354,12 @@ gst_my_filter_change_state (GstElement *element, GstStateChange transition)
     break;
   }
 
-  ret = GST_ELEMENT_CLASS (parent_class)->change_state (element, transition);
+  ret = GST_ELEMENT_CLASS(parent_class)->change_state(element, transition);
   if (ret == GST_STATE_CHANGE_FAILURE)
     return ret;
 
   switch (transition) {
-  // case GST_STATE_CHANGE_READY_TO_NULL:
+    // case GST_STATE_CHANGE_READY_TO_NULL:
     // gst_my_filter_free_memory (filter);
     break;
   default:
