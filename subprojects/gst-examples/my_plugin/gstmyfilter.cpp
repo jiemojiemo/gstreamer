@@ -102,7 +102,7 @@ constexpr static float kDefaultDry = 0.5f;
 constexpr static float kDefaultWet = 0.5f;
 
 
-class GstMyFilterPrivate {
+class GstMyFilterImpl {
 public:
   std::atomic<float> delay = {kDefaultDelay};
   std::atomic<float> feedback = {kDefaultFeedback};
@@ -198,7 +198,7 @@ static void gst_my_filter_class_init(GstMyFilterClass *klass) {
  * initialize instance structure
  */
 static void gst_my_filter_init(GstMyFilter *filter) {
-  filter->impl = new GstMyFilterPrivate();
+  filter->impl = new GstMyFilterImpl();
 
   filter->sinkpad = gst_pad_new_from_static_template(&sink_factory, "sink");
   gst_pad_set_event_function(filter->sinkpad,
@@ -216,7 +216,7 @@ static void gst_my_filter_init(GstMyFilter *filter) {
 static void gst_my_filter_set_property(GObject *object, guint prop_id,
                                        const GValue *value, GParamSpec *pspec) {
   GstMyFilter *filter = GST_MYFILTER(object);
-  auto *priv = static_cast<GstMyFilterPrivate *>(filter->impl);
+  auto *priv = static_cast<GstMyFilterImpl *>(filter->impl);
 
   switch (prop_id) {
   case PROP_DELAY:
@@ -240,7 +240,7 @@ static void gst_my_filter_set_property(GObject *object, guint prop_id,
 static void gst_my_filter_get_property(GObject *object, guint prop_id,
                                        GValue *value, GParamSpec *pspec) {
   GstMyFilter *filter = GST_MYFILTER(object);
-  auto *priv = static_cast<GstMyFilterPrivate *>(filter->impl);
+  auto *priv = static_cast<GstMyFilterImpl *>(filter->impl);
 
   switch (prop_id) {
   case PROP_DELAY:
@@ -263,7 +263,7 @@ static void gst_my_filter_get_property(GObject *object, guint prop_id,
 
 static void gst_my_filter_finalize(GObject* object) {
   GstMyFilter *filter = GST_MYFILTER(object);
-  auto *priv = static_cast<GstMyFilterPrivate *>(filter->impl);
+  auto *priv = static_cast<GstMyFilterImpl *>(filter->impl);
   delete priv;
 }
 
@@ -276,7 +276,7 @@ static gboolean gst_my_filter_sink_event(GstPad *pad, GstObject *parent,
   gboolean ret;
 
   filter = GST_MYFILTER(parent);
-  auto *priv = static_cast<GstMyFilterPrivate *>(filter->impl);
+  auto *priv = static_cast<GstMyFilterImpl *>(filter->impl);
 
   GST_LOG_OBJECT(filter, "Received %s event: %" GST_PTR_FORMAT,
                  GST_EVENT_TYPE_NAME(event), event);
@@ -319,7 +319,7 @@ static GstFlowReturn gst_my_filter_chain(GstPad *pad, GstObject *parent,
   GstMyFilter *filter;
 
   filter = GST_MYFILTER(parent);
-  auto *priv = static_cast<GstMyFilterPrivate *>(filter->impl);
+  auto *priv = static_cast<GstMyFilterImpl *>(filter->impl);
 
   // get buffer
   GstMapInfo map;
