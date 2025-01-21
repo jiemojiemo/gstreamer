@@ -15,3 +15,16 @@ gstmyfilterexample = library('gstmyfilter',
                              install : true,
                              install_dir : plugins_install_dir,
 )
+
+gstmyemptyfilter_sources = [
+    'gstmyemptyfilter.cpp',
+]
+
+gstmyemptyfilter = library('gstmyemptyfilter',
+                           gstmyemptyfilter_sources,
+                           c_args: plugin_c_args,
+                           cpp_args: plugin_cpp_args,
+                           dependencies : [gst_dep, gstbase_dep, gstaudio_dep],
+                           install : true,
+                           install_dir : plugins_install_dir,
+)
