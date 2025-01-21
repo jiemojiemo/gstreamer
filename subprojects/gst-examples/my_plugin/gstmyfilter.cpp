@@ -76,7 +76,7 @@ enum {
   LAST_SIGNAL
 };
 
-enum { PROP_0, PROP_SILENT, PROP_DELAY, PROP_FEEDBACK, PROP_DRY, PROP_WET };
+enum { PROP_0, PROP_DELAY, PROP_FEEDBACK, PROP_DRY, PROP_WET };
 
 /* the capabilities of the inputs and outputs.
  *
@@ -148,11 +148,6 @@ static void gst_my_filter_class_init(GstMyFilterClass *klass) {
   gobject_class->set_property = gst_my_filter_set_property;
   gobject_class->get_property = gst_my_filter_get_property;
   gobject_class->finalize = gst_my_filter_finalize;
-
-  g_object_class_install_property(
-      gobject_class, PROP_SILENT,
-      g_param_spec_boolean("silent", "Silent", "Produce verbose output ?",
-                           FALSE, G_PARAM_READWRITE));
 
   g_object_class_install_property(
       gobject_class, PROP_DELAY,
